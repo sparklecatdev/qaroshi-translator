@@ -1,5 +1,9 @@
 # Qaroshi Translator
 
+**[Launch the translator website](https://sparklecatdev.github.io/qaroshi-translator/)** · [Source repository](https://github.com/sparklecatdev/qaroshi-translator)
+
+The GitHub *repository* page normally shows this README. The **GitHub Pages** address above is the actual app, served from the root-level `index.html`. It loads the 30,001-word source snapshot from the seven pinned `.snapshot/` archive parts, verifies its SHA-256, and caches files for offline use.
+
 A source-linked, offline-first English ↔ Qaroshi translator, built as a standalone second project. Uses the complete **30,001-word Standard 8.0 editioned lexicon**, 4,383 controlled bilingual examples, 25 generalized verb frames, 400 verb audit records, and all 16 resonance markers. No ads or analytics.
 
 **Why it’s careful:** Most constructed-language datasets do not license unrestricted open-domain translations. The app distinguishes four outcomes:
@@ -28,7 +32,7 @@ Visit **http://127.0.0.1:4173**. The complete dictionary and controlled-example 
 
 The app source is published in [sparklecatdev/qaroshi-translator](https://github.com/sparklecatdev/qaroshi-translator). Clone the repository, then run `npm test` and `npm start`. The pinned 30,001-word data snapshot is automatically reassembled from seven checked-in binary chunks before testing or building; the integrity checksum is verified before extraction. No GitHub API key or network download is needed for the snapshot.
 
-Enable **Settings → Pages → Build and deployment → GitHub Actions**. The included workflow publishes the static app. It does **not** expose or run the optional AI service; deploy that separately if desired. Before making the repository public, select a license or obtain rights clearance for the Qaroshi source-derived content; see [LICENSE_NOTICE.md](LICENSE_NOTICE.md).
+GitHub Pages is currently configured for **Deploy from a branch: `main` / `(root)`**. The root-level site entry point handles this automatically. A separate workflow can deploy the prebuilt site if you later switch Pages to **GitHub Actions**; that optional workflow is manual-only until you change the Pages source. Neither deployment mode exposes or runs the optional AI service; deploy that separately if desired. Before making the repository public, select a license or obtain rights clearance for the Qaroshi source-derived content; see [LICENSE_NOTICE.md](LICENSE_NOTICE.md).
 
 ### Optional AI-assisted drafts
 
