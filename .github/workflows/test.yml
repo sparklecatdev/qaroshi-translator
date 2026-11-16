@@ -1,0 +1,33 @@
+name: Validate translator
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Verify source-backed translator
+        run: npm test
+      - name: Build complete static web app
+        run: npm run build
+      - name: Verify full data bundle
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('dist/data')
+          meta=json.loads((p/'meta.json').read_text())
+          assert meta['lexical_count']==30001 and meta['examples_count']==4383
+          assert len(json.loads((p/'lexicon.json').read_text()))==30001
+          assert len(json.loads((p/'examples.json').read_text()))==4383
+          print('Complete dataset verified')
+          PY

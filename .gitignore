@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+__pycache__/
+.pytest_cache/
+*.zip
+
+# Expanded data is restored automatically from the pinned, verified .snapshot parts.
+/public/data/*.json

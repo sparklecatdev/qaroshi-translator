@@ -1,0 +1,19 @@
+{
+  "name": "qaroshi-translator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline-first, source-grounded English to Qaroshi and Qaroshi to English translation and dictionary",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "python3 scripts/build_site.py",
+    "start": "npm run build && node server.mjs",
+    "preview": "node server.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm test && npm run build",
+    "pretest": "python3 scripts/hydrate_data.py",
+    "prebuild": "python3 scripts/hydrate_data.py"
+  }
+}

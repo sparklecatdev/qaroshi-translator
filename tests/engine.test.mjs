@@ -1,0 +1,45 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {Translator,normalize,CASES} from '../src/engine.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const load=(x)=>JSON.parse(fs.readFileSync(path.join(root,'public/data',x+'.json'),'utf8'));
+const data=Object.fromEntries(['lexicon','examples','frames','resonances','phonemes','meta'].map(x=>[x,load(x)]));
+const engine=new Translator(data);
+
+function out(s,options){return engine.translate(s,options);}
+test('dataset sizes and edition provenance',()=>{assert.equal(data.lexicon.length,30001);assert.equal(data.examples.length,4383);assert.equal(data.frames.audited.length,400);assert.equal(data.frames.reviewed.length,25);assert.equal(data.resonances.length,16);assert.equal(data.phonemes.length,26);assert.equal(data.meta.lexical_count,30001);assert.equal(data.lexicon.at(-1).qaroshi,'nëgëra');});
+test('no duplicate dictionary IDs or words',()=>{assert.equal(new Set(data.lexicon.map(x=>x.id)).size,30001);assert.equal(new Set(data.lexicon.map(x=>x.qaroshi)).size,30001);});
+test('source metadata references actual canon',()=>{assert.ok(data.meta.source_repo.includes('/qaroshi'));assert.ok(data.meta.source_sha256.lexicon.length===64);});
+test('exact documented English to Qaroshi match',()=>{const r=out('I will protect you.',{direction:'en'});assert.equal(r.status,'documented');assert.equal(r.output,'qor mi ti-m daru-yu.');assert.ok(r.variants[0].id);});
+test('exact Qaroshi to English match',()=>{const r=out('qor mi ti-m daru-yu.',{direction:'qr'});assert.equal(r.status,'documented');assert.match(r.output,/protect you/i);});
+test('documented giving water',()=>{const r=out('I give water to a friend.',{direction:'en'});assert.equal(r.status,'documented');assert.equal(r.output,'sen mi mara-tu kima-m pëli.');});
+test('safe grammatical English to Qaroshi composition',()=>{const r=out('I protect the home.',{direction:'en'});assert.equal(r.status,'composed');assert.equal(r.output,'sen mi naro-m daru.');assert.match(r.warnings.join(' '),/Provisional/);});
+test('subject pronoun and finite verb analysis',()=>{const r=out('sen mi goro.',{direction:'qr'});assert.equal(r.status,'composed');assert.equal(r.output,'I fly.');});
+test('negation is preverbal',()=>{const r=out('sen mi nu goro.',{direction:'qr'});assert.equal(r.output,'I do not fly.');});
+test('conjugated past',()=>{const r=out('sen mi goro-te.',{direction:'qr'});assert.equal(r.output,'I flew.');});
+test('English negative generation',()=>{const r=out('I do not fly.',{direction:'en'});assert.equal(r.output,'sen mi nu goro.');});
+test('future and ability distinct',()=>{const future=out('I will fly.',{direction:'en'}),ability=out('I can fly.',{direction:'en'});assert.equal(future.output,'sen mi goro-yu.');assert.match(ability.output,/goro-ki/);assert.ok(['documented','composed'].includes(ability.status));});
+test('provisional results never claim full verification',()=>{const r=out('I see the friend.',{direction:'en'});assert.equal(r.status,'composed');assert.match(r.warnings.join(' '),/not a canonical/);});
+test('Qaroshi word-level lookup',()=>{const r=out('goro',{direction:'qr'});assert.equal(r.status,'lexical');assert.match(r.output,/fly/);});
+test('English word-level lookup is labeled lexical',()=>{const r=out('wing',{direction:'en'});assert.equal(r.status,'lexical');assert.equal(r.output,'banu');});
+test('standard8 non-universal quantifier',()=>{const r=out('sen nëgëra qaro goro.',{direction:'qr'});assert.equal(r.status,'composed');assert.match(r.output,/Not every Nardoragon/);});
+test('unknown roots do not get invented translation',()=>{const r=out('sen mi flippitywip.',{direction:'qr'});assert.equal(r.status,'unresolved');assert.equal(r.output,'');});
+test('unsupported complex English abstains',()=>{const r=out('I thought you knew that she had already left.',{direction:'en'});assert.equal(r.status,'unresolved');assert.equal(r.output,'');});
+test('unknown lexical sense does not mass-generate',()=>{const r=out('I launched an interplanetary enterprise.',{direction:'en'});assert.equal(r.status,'unresolved');});
+test('case morphology ordered',()=>{const a=engine.analyzeWord('mara-ri-m');assert.deepEqual(a.issues,[]);assert.equal(a.features.number,'plural');assert.equal(a.features.case,'object');assert.ok(engine.analyzeWord('mara-m-ri').issues.length);});
+test('verb morphology ordered',()=>{assert.deepEqual(engine.analyzeWord('goro-te-ki').issues,[]);assert.ok(engine.analyzeWord('goro-ki-te').issues.length);assert.ok(engine.analyzeWord('goro-te-yu').issues.length);});
+test('passive agents never silently rendered in English as instruments',()=>{const r=out('sen naro mara-za daru-li-te.',{direction:'qr'});assert.equal(r.status,'unresolved');assert.ok(r.warnings.some(x=>x.includes('Voice')));});
+test('wrong patient kinds abstain',()=>{assert.equal(out('I drink the book.',{direction:'en'}).status,'unresolved');assert.equal(out('sen mi shima-m këmë.',{direction:'qr'}).status,'unresolved');});
+test('give needs recipient and theme',()=>{assert.equal(out('I give water.',{direction:'en'}).status,'unresolved');assert.equal(out('sen mi kima-m pëli.',{direction:'qr'}).status,'unresolved');});
+test('resonance requirement for complete Qaroshi',()=>{const r=out('mi goro.',{direction:'qr'});assert.equal(r.status,'unresolved');assert.match(r.warnings.join(' '),/resonance/);});
+test('auto language detection respects initial resonance',()=>{assert.equal(engine.detect('sen mi goro.'),'qr');assert.equal(engine.detect('I protect the home.'),'en');});
+test('dictionary case-aware search finds whole 30k',()=>{const r=engine.lookup('banu',15);assert.equal(r[0].qaroshi,'banu');assert.ok(engine.lookup('thermal',12).length>=1);});
+test('IPA uses canonical value',()=>{assert.match(engine.ipa('sen mi goro.'),/ɡo|ɡ/);});
+test('related citations are labeled reference-only',()=>{const r=out('I protect the wing.',{direction:'en'});assert.ok(r.related.every(x=>x.warning.includes('not a translation')));});
+test('NFC normalization',()=>{assert.equal(normalize('  SEN   MI  GORO.  '),'sen mi goro');});
+
+test('multi-sentence input retains individual decisions',()=>{const r=out('I protect the home. I see the friend.',{direction:'en'});assert.equal(r.segments.length,2);assert.match(r.output,/sen mi naro-m daru/);assert.match(r.output,/sen mi mara-m tika/);assert.equal(r.coverage,'2/2 sentences');});
+test('multi-sentence input does not fabricate unsupported clauses',()=>{const r=out('I protect the home. The bank speculates about stars.',{direction:'en'});assert.equal(r.status,'partial');assert.match(r.output,/Unresolved sentence 2/);assert.equal(r.coverage,'1/2 sentences');});
